@@ -214,11 +214,11 @@ salted_hash = salt + '!' + sha256( salt + password )
 
 # À vous!
 
-Rendez-vous ici: https://github.com/masterind4/crypto
+Rendez-vous ici: https://masterind4.github.io
 
 Ou directement: `git clone https://github.com/masterind4/crypto.git`
 
-Ouvrez le fichier `hash.py` dans un éditeur de code.
+
 
 ---
 
@@ -256,20 +256,247 @@ On a un ISO et un fichier de signature
 
 ---
 
+On continue sur le TP, exercices sur la signature digitale.
+
+---
 # Récapitulatif
 
 - Un *hash* (ou empreinte) assure l'intégrité de la donnée
 - Une signature assure *l'authenticité* de la donnée
-- (L'encryption assure la *confidentialité* de la donnée, cf ce matin)
+- (Le chiffrement assure la *confidentialité* de la donnée, cf ce matin)
 
 ---
 
 # Certificats
 
 
+---
+
+# Certificats
+
+Les certificats sont à la base de:
+
+- l'internet moderne
+- vos apps Android, iOS
+- la sécurité en entreprise
+- l'interception et l'analyse du traffic dans les pays liberticides
+- une myriade d'usages dès qu'il y a besoin d'authentification
+
+Format standardisé: X.509
+
+> Tout est question de confiance
+>  -- Guillaume B., 2022
+
+---
+<!-- header: "Certificats" -->
+
+Un certificat contient:
+
+- une clé *publique*
+- les informations du certificat (exemple: nom de domaine lié à ce certificat, date d'expiration, etc.)
+- une signature de ce certificat (rappel: signature =
+  `chiffrage( clé privée, HASH( contenu du certificat) )` ) par un autre certificat tiers
+
+La clé *privée* associée à la clé *publique* permet d'authentifier celui qui présente le certificat
+
+La signature du certificat provient:
+
+- d'une autorité de certification dont la clé publique est dans le porte clé de confiance (dans l'OS ou le navigateur)
+- ou de la machine qui présente le certificat ("certificat autosigné"), dans ce cas la clé privée
+
+
+---
+
+## Chaîne de certification
+
+Exemple pour les certificats TLS utilisés sur internet:
+- Les navigateurs n'embarquent que les certificats des autorités dite "Racines", qui sont de gros groupes commerciaux audités ou des gouvernements.
+- Ces certificats racines signent des certificats intermédiaires, et les fournissent aux autorités de certification "Tier 2", qui peuvent à leur tour signer des certificats
+- Moi, toto.com, demande à une de ces autorités de certification tier 2 de signer mon certificat avec sa clé privée, moyennant finances et preuves que je possède bien ce nom de domaine.
+- La chaîne de confiance s'établit de proche en proche
+---
+
+## Chaîne de certification
+
+![w:800](trust.png)
+
+---
+## Anatomie d'un certificat
+
+```
+$ echo \
+   | openssl s_client -connect google.com:443  2>/dev/null \
+   | openssl x509 -text
+```
+![bg right fit](cert.png)
+
+
+(lancez la commande dans votre terminal et admirez la liste de DNS Google)
+
+---
+
+## Établissement de connection SSL/TLS
+
+[TLS 1.3](https://www.owasp.org/images/9/91/OWASPLondon20180125_TLSv1.3_Andy_Brodie.pdf#page=21)
+
+1. Le client établit un canal sécurisé avec le serveur (en utilisant un echange via Diffie-Helman)
+2. Le serveur web présente son certificat au client
+3. Le client vérifie la chaîne de certificats pour authentifier le serveur. Envoie un challenge encrypté avec la clé publique du serveur, et envoie sa clé publique
+4. Le serveur web décrypte le challenge avec sa clé privée et le crypte avec la clé publique du client
+5. Si le serveur arrive à renvoyer le challenge au client, c'est qu'il possède la clé privée.
+
+---
+
+## Compromission d'un certificat
+
+Si la clé privée associée à un certificat est exposée, alors ce certificat devient *compromis*: toute personne qui possède la clé privée peut l'utiliser pour se faire passer pour le serveur légitime.
+
+Dans ce cas, on *révoque* le certificat
+
+2 solutions:
+- Certificate Revocation List
+- Online Certificate Status Protocol (vulnérable à une attaque "replay")
+
+Les urls de ces deux mécanismes sont intégrées aux certificats sous la forme d'attributs (tout comme la date ou le numéro de série)
+
+---
+
+### Certificate revocation list
+
+Une simple liste, signée cryptographiquement par l'autorité de certification, qui liste les certificats révoqués.
+
+Avantages:
+
+- simple à créer,
+- simple à publier (même en HTTP)
+
+Inconvénients:
+
+
+---
+### Certificate revocation list
+
+Une simple liste, signée cryptographiquement par l'autorité de certification, qui liste les certificats révoqués.
+
+Avantages:
+
+- simple à créer,
+- simple à publier (même en HTTP)
+
+Inconvénients:
+- la liste grossit régulièrement => chaque réponse doit envoyer la CRL en entier
+- 99% inutile: je ne suis intéressé que par mon certificat, pas le reste de la liste
+
+---
+
+### OCSP
+
+Méthode plus récente, basée sur une API:
+
+- je veux savoir si le certificat présenté par toto.com est valide
+- je contacte l'URL OCSP indiquée dans le certificat avec le Serial du certificat à vérifier
+- l'URL répond avec un "Good" / "No good" __signé__ pour dire si le certificat est bon ou pas
+
+Avantages:
+- très succinct: j'ai la réponse pour MON certificat, et seulement lui
+- et donc très économe en resources et rapide à répondre
+
+Inconvénients:
+- réponses signées mises en cache, sans expiration ni *nonce*, et donc susceptibles d'être rejouées à un client.
+
+---
+
+## Authentification par certificat client
+
+### Je demande à mon interlocuteur de me fournir un certificat. Pour cela:
+
+1. Je crée un couple de clés, et je crée un certificat non signé avec la clé publique
+2. J'envoie ce certificat pour signature ("CSR") au serveur web, qui me le renvoie signé.
+
+### Au prochain login, j'envoie mon certificat au serveur.
+
+1. Il peut vérifier qu'il l'a bien signé en vérifiant la signature;
+2. Il peut m'authentifier via l'authentification par clé publique, car ma clé est présente dans le certificat (Challenge/Réponse)
+3. De mon côté je suis sûr de parler au même serveur car il m'a fourni sa clé publique.
+
+Authentification très forte, résiste aux MITM.
+
+---
+<style scoped>
+section {
+  justify-content: start;
+}
+</style>
+# MITM (Man In The Middle)
+
+![bg w:850](mitm1.png)
+
+---
+<style scoped>
+section {
+  justify-content: start;
+}
+</style>
+# MITM (Man In The Middle)
+
+![bg w:850](mitm2.png)
+
+---
+<style scoped>
+section {
+  justify-content: start;
+}
+</style>
+# MITM (Man In The Middle)
+
+
+![bg w:800](mitm3.png)
+
+---
+# Questions
+
+---
+
+# Trivia
+![](./bloq.png)
+
+---
+
+# Trivia
+
+Lenovo Superfish
+
+- Embarque dans tous les ordinateurs Lenovo un certificat racine autosigné
+- Embarque aussi la clé privée (protégée par mot de passe)
+- Le mot de passe est trouvé facilement, et des certificats bidons peuvent être générés (pour google.com par exemple)
+- TOUS les ordinateurs Lenovo pourront être dupés par ces certificats
+
+[Source](http://blog.erratasec.com/2015/02/extracting-superfish-certificate.html)
+
+---
+
+# Biblio
+
+[Exemple d'échange de clé DH](https://fr.wikipedia.org/wiki/%C3%89change_de_cl%C3%A9s_Diffie-Hellman) (Wikipédia)
+
+[Exemple de chiffrage clé publique (RSA)](https://fr.wikipedia.org/wiki/Chiffrement_RSA) (Wikipédia)
+
+[Support TLS du browser](https://cc.dcsec.uni-hannover.de/)
+
+[RFC Certificats x509](https://tools.ietf.org/html/rfc5280)
+
+[Décoder un pem](https://lapo.it/asn1js/) (mais sinon, utiliser openssl)
+
+[Chiffrement RSA](https://fr.wikipedia.org/wiki/Chiffrement_RSA) (Wikipédia)
+
+[Chiffrement par courbes elliptiques](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography) (Wikipédia)
+
+[Un site qui explique tout ça vraiment bien (et en français)](http://www.bibmath.net/crypto/index.php)
+
+
 ----
 
-NOTEs:
+Notes:
 
 LE tp sera en plusieurs parties:
 
