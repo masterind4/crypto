@@ -406,22 +406,6 @@ Inconvénients:
 
 ---
 
-## Authentification par certificat client
-
-### Je demande à mon interlocuteur de me fournir un certificat. Pour cela:
-
-1. Je crée un couple de clés, et je crée un certificat non signé avec la clé publique
-2. J'envoie ce certificat pour signature ("CSR") au serveur web, qui me le renvoie signé.
-
-### Au prochain login, j'envoie mon certificat au serveur.
-
-1. Il peut vérifier qu'il l'a bien signé en vérifiant la signature;
-2. Il peut m'authentifier via l'authentification par clé publique, car ma clé est présente dans le certificat (Challenge/Réponse)
-3. De mon côté je suis sûr de parler au même serveur car il m'a fourni sa clé publique.
-
-Authentification très forte, résiste aux MITM.
-
----
 <style scoped>
 section {
   justify-content: start;
@@ -453,12 +437,32 @@ section {
 ![bg w:800](mitm3.png)
 
 ---
+
+## Authentification par certificat client
+
+### Je demande à mon interlocuteur de me fournir un certificat. Pour cela:
+
+1. Je crée un couple de clés, et je crée un certificat non signé avec la clé publique
+2. J'envoie ce certificat pour signature ("CSR") au serveur web, qui me le renvoie signé.
+
+### Au prochain login, j'envoie mon certificat au serveur.
+
+1. Il peut vérifier qu'il l'a bien signé en vérifiant la signature;
+2. Il peut m'authentifier via l'authentification par clé publique, car ma clé est présente dans le certificat (Challenge/Réponse)
+3. De mon côté je suis sûr de parler au même serveur car il m'a fourni sa clé publique.
+
+Authentification très forte, résiste aux MITM.
+
+---
 # Questions
 
 ---
 
 # Trivia
+
 ![](./bloq.png)
+
+https://support.apple.com/fr-sn/HT212248
 
 ---
 
@@ -494,15 +498,8 @@ Lenovo Superfish
 [Un site qui explique tout ça vraiment bien (et en français)](http://www.bibmath.net/crypto/index.php)
 
 
-----
+---
 
-Notes:
+## Si on a le temps
 
-LE tp sera en plusieurs parties:
-
-- petit départ pour familiariser les gens avec l'exe sha256
-- ensuite on passe à un D/L d'exe et on vérifie son md5sum
-- on execute, ça marche.
-- on D/L un autre exe, autre nom mais même md5! On execute: bam
-- Fin du TP: on crée et on décortique un certificat
-  - openssl
+Blockchain, Proof Of Work, Bitcoin.
